@@ -67,9 +67,9 @@ class QueueScreen(Widget):
     }
     """
     
-    def __init__(self, app, job_config, cluster_config):
+    def __init__(self, wizard_app, job_config, cluster_config):
         super().__init__()
-        self.app = app
+        self.wizard_app = wizard_app
         self.job_config = job_config
         self.cluster_config = cluster_config
     
@@ -354,7 +354,7 @@ Choose the appropriate queue for your job. Queues have different resource limits
     def validate(self) -> bool:
         """Validate queue selection"""
         if not self.job_config.queue:
-            self.app.show_error_message("Queue Selection Required", ["Please select a queue"])
+            self.wizard_app.show_error_message("Queue Selection Required", ["Please select a queue"])
             return False
         
         # Check compatibility
@@ -362,7 +362,7 @@ Choose the appropriate queue for your job. Queues have different resource limits
         if queue_info:
             compatibility_issues = self._check_compatibility(queue_info)
             if compatibility_issues:
-                self.app.show_warning_message(
+                self.wizard_app.show_warning_message(
                     "Compatibility Issues", 
                     "\\n".join(compatibility_issues) + "\\n\\nDo you want to continue anyway?"
                 )

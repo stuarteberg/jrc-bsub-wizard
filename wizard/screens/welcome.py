@@ -46,9 +46,9 @@ class WelcomeScreen(Widget):
     }
     """
     
-    def __init__(self, app, job_config, cluster_config):
+    def __init__(self, wizard_app, job_config, cluster_config):
         super().__init__()
-        self.app = app
+        self.wizard_app = wizard_app
         self.job_config = job_config
         self.cluster_config = cluster_config
     
@@ -124,7 +124,7 @@ Press **Next** to begin the wizard, or use the quick action buttons above for co
         elif button_id == "quick-interactive":
             self._setup_quick_interactive()
         elif button_id == "quick-load":
-            self.app.action_load_config()
+            self.wizard_app.action_load_config()
     
     def _setup_quick_cpu_job(self) -> None:
         """Set up a quick CPU job configuration"""
@@ -137,8 +137,8 @@ Press **Next** to begin the wizard, or use the quick action buttons above for co
         self.job_config.command = "python my_script.py"
         
         # Jump to resources screen
-        self.app.current_step = 2
-        self.app.show_current_step()
+        self.wizard_app.current_step = 2
+        self.wizard_app.show_current_step()
     
     def _setup_quick_gpu_job(self) -> None:
         """Set up a quick GPU job configuration"""
@@ -155,8 +155,8 @@ Press **Next** to begin the wizard, or use the quick action buttons above for co
         self.job_config.command = "python train.py"
         
         # Jump to resources screen
-        self.app.current_step = 2
-        self.app.show_current_step()
+        self.wizard_app.current_step = 2
+        self.wizard_app.show_current_step()
     
     def _setup_quick_interactive(self) -> None:
         """Set up a quick interactive session configuration"""
@@ -170,8 +170,8 @@ Press **Next** to begin the wizard, or use the quick action buttons above for co
         self.job_config.command = "/bin/bash"
         
         # Jump to runtime screen
-        self.app.current_step = 4
-        self.app.show_current_step()
+        self.wizard_app.current_step = 4
+        self.wizard_app.show_current_step()
     
     def validate(self) -> bool:
         """Validate the welcome screen (always valid)"""

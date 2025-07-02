@@ -75,9 +75,9 @@ class RuntimeScreen(Widget):
     }
     """
     
-    def __init__(self, app, job_config, cluster_config):
+    def __init__(self, wizard_app, job_config, cluster_config):
         super().__init__()
-        self.app = app
+        self.wizard_app = wizard_app
         self.job_config = job_config
         self.cluster_config = cluster_config
     
@@ -357,7 +357,7 @@ Configure job scheduling, runtime limits, and notification options. These settin
                 errors.append(f"Array job: {error}")
         
         if errors:
-            self.app.show_error_message("Runtime Configuration Errors", errors)
+            self.wizard_app.show_error_message("Runtime Configuration Errors", errors)
             return False
         
         return True

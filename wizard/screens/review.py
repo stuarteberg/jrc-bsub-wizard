@@ -88,9 +88,9 @@ class ReviewScreen(Widget):
     }
     """
     
-    def __init__(self, app, job_config, cluster_config, final_command=None, estimated_cost=0.0):
+    def __init__(self, wizard_app, job_config, cluster_config, final_command=None, estimated_cost=0.0):
         super().__init__()
-        self.app = app
+        self.wizard_app = wizard_app
         self.job_config = job_config
         self.cluster_config = cluster_config
         self.final_command = final_command
@@ -154,14 +154,14 @@ Review your job configuration and generated command. Make sure everything looks 
         """Generate the final command and script"""
         # Generate command if not provided
         if not self.final_command:
-            self.final_command = self.app.command_builder.build_command(self.job_config)
+            self.final_command = self.wizard_app.command_builder.build_command(self.job_config)
         
         # Display command
         command_display = self.query_one("#command-display", TextArea)
         command_display.text = self.final_command
         
         # Generate complete script
-        script_content = self.app.command_builder.generate_job_script(self.job_config)
+        script_content = self.wizard_app.command_builder.generate_job_script(self.job_config)
         script_display = self.query_one("#script-display", TextArea)
         script_display.text = script_content
     
@@ -210,7 +210,7 @@ Review your job configuration and generated command. Make sure everything looks 
     def _update_cost_estimate(self) -> None:
         """Update the cost estimate display"""
         if not self.estimated_cost:
-            self.estimated_cost = self.app.command_builder.estimate_cost(self.job_config)
+            self.estimated_cost = self.wizard_app.command_builder.estimate_cost(self.job_config)
         
         cost_lines = []
         
@@ -264,7 +264,7 @@ Review your job configuration and generated command. Make sure everything looks 
         warnings = []
         
         # Validate configuration
-        validation_warnings = self.app.command_builder.validate_configuration(self.job_config)
+        validation_warnings = self.wizard_app.command_builder.validate_configuration(self.job_config)
         warnings.extend(validation_warnings)
         
         # Additional checks
@@ -306,10 +306,10 @@ Review your job configuration and generated command. Make sure everything looks 
         try:
             import pyperclip
             pyperclip.copy(self.final_command)
-            self.app.show_success_message("Command Copied", "BSub command copied to clipboard!")
+            self.wizard_app.show_success_message("Command Copied", "BSub command copied to clipboard!")
         except ImportError:
             # Fallback - show the command in a modal
-            self.app.show_success_message(
+            self.wizard_app.show_success_message(
                 "Copy Command", 
                 f"Copy this command:\\n\\n{self.final_command}"
             )
@@ -322,9 +322,9 @@ Review your job configuration and generated command. Make sure everything looks 
         try:
             import pyperclip
             pyperclip.copy(script_content)
-            self.app.show_success_message("Script Copied", "Complete job script copied to clipboard!")
+            self.wizard_app.show_success_message("Script Copied", "Complete job script copied to clipboard!")
         except ImportError:
-            self.app.show_success_message(
+            self.wizard_app.show_success_message(
                 "Copy Script",
                 "Script content displayed in text area - select and copy manually"
             )
@@ -382,12 +382,12 @@ Review your job configuration and generated command. Make sure everything looks 
             with open(filename, 'w') as f:
                 json.dump(config_dict, f, indent=2)
             
-            self.app.show_success_message(
+            self.wizard_app.show_success_message(
                 "Configuration Saved",
                 f"Job configuration saved to {filename}"
             )
         except Exception as e:
-            self.app.show_error_message(
+            self.wizard_app.show_error_message(
                 "Save Failed",
                 [f"Could not save configuration: {str(e)}"]
             )
@@ -403,12 +403,12 @@ Review your job configuration and generated command. Make sure everything looks 
             with open(filename, 'w') as f:
                 f.write(script_content)
             
-            self.app.show_success_message(
+            self.wizard_app.show_success_message(
                 "Script Exported",
                 f"Job script exported to {filename}\\nMake it executable with: chmod +x {filename}"
             )
         except Exception as e:
-            self.app.show_error_message(
+            self.wizard_app.show_error_message(
                 "Export Failed",
                 [f"Could not export script: {str(e)}"]
             )
@@ -416,9 +416,9 @@ Review your job configuration and generated command. Make sure everything looks 
     def _restart_wizard(self) -> None:
         """Restart the wizard from the beginning"""
         # Reset the app state
-        self.app.current_step = 0
-        self.app.job_config = type(self.app.job_config)()  # Create new instance
-        self.app.show_current_step()
+        self.wizard_app.current_step = 0
+        self.wizard_app.job_config = type(self.wizard_app.job_config)()  # Create new instance
+        self.wizard_app.show_current_step()
     
     def validate(self) -> bool:
         """Validate the final configuration (always valid at this stage)"""

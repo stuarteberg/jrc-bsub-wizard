@@ -89,9 +89,9 @@ class AdvancedScreen(Widget):
     }
     """
     
-    def __init__(self, app, job_config, cluster_config):
+    def __init__(self, wizard_app, job_config, cluster_config):
         super().__init__()
-        self.app = app
+        self.wizard_app = wizard_app
         self.job_config = job_config
         self.cluster_config = cluster_config
     
@@ -314,13 +314,13 @@ Use these settings for specialized requirements like:
         var_value = env_value_input.value.strip()
         
         if not var_name:
-            self.app.show_error_message("Invalid Environment Variable", ["Variable name is required"])
+            self.wizard_app.show_error_message("Invalid Environment Variable", ["Variable name is required"])
             return
         
         # Validate the environment variable
         valid, error = JobValidator.validate_environment_variable(var_name, var_value)
         if not valid:
-            self.app.show_error_message("Invalid Environment Variable", [error])
+            self.wizard_app.show_error_message("Invalid Environment Variable", [error])
             return
         
         # Add to configuration
@@ -387,11 +387,11 @@ Use these settings for specialized requirements like:
         
         # Show errors
         if errors:
-            self.app.show_error_message("Advanced Configuration Errors", errors)
+            self.wizard_app.show_error_message("Advanced Configuration Errors", errors)
             return False
         
         # Show warnings
         if warnings:
-            self.app.show_warning_message("Advanced Configuration Warnings", "\\n".join(warnings))
+            self.wizard_app.show_warning_message("Advanced Configuration Warnings", "\\n".join(warnings))
         
         return True

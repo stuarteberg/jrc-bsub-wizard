@@ -61,9 +61,9 @@ class JobTypeScreen(Widget):
     }
     """
     
-    def __init__(self, app, job_config, cluster_config):
+    def __init__(self, wizard_app, job_config, cluster_config):
         super().__init__()
-        self.app = app
+        self.wizard_app = wizard_app
         self.job_config = job_config
         self.cluster_config = cluster_config
     
@@ -254,7 +254,7 @@ Choose the type of job you want to submit. This will determine available options
         radio_set = self.query_one("#job-type-selection", RadioSet)
         
         if not radio_set.pressed:
-            self.app.show_error_message("Job Type Required", ["Please select a job type"])
+            self.wizard_app.show_error_message("Job Type Required", ["Please select a job type"])
             return False
         
         return True

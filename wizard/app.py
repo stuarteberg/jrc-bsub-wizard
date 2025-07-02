@@ -216,7 +216,7 @@ class BsubWizardApp(App):
         
         # Create and show the screen
         screen = screen_class(
-            app=self,
+            wizard_app=self,
             job_config=self.job_config,
             cluster_config=self.cluster_config
         )
@@ -284,7 +284,7 @@ class BsubWizardApp(App):
         
         # Show the final result
         self.push_screen(ReviewScreen(
-            app=self,
+            wizard_app=self,
             job_config=self.job_config,
             cluster_config=self.cluster_config,
             final_command=command,

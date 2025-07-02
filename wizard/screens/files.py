@@ -70,9 +70,9 @@ class FilesScreen(Widget):
     }
     """
     
-    def __init__(self, app, job_config, cluster_config):
+    def __init__(self, wizard_app, job_config, cluster_config):
         super().__init__()
-        self.app = app
+        self.wizard_app = wizard_app
         self.job_config = job_config
         self.cluster_config = cluster_config
     
@@ -271,11 +271,11 @@ Configure input/output files and working directories. Proper file management is 
         
         # Show errors
         if errors:
-            self.app.show_error_message("File Configuration Errors", errors)
+            self.wizard_app.show_error_message("File Configuration Errors", errors)
             return False
         
         # Show warnings
         if warnings:
-            self.app.show_warning_message("File Configuration Warnings", "\\n".join(warnings))
+            self.wizard_app.show_warning_message("File Configuration Warnings", "\\n".join(warnings))
         
         return True

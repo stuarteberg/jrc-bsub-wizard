@@ -75,9 +75,9 @@ class ResourcesScreen(Widget):
     }
     """
     
-    def __init__(self, app, job_config, cluster_config):
+    def __init__(self, wizard_app, job_config, cluster_config):
         super().__init__()
-        self.app = app
+        self.wizard_app = wizard_app
         self.job_config = job_config
         self.cluster_config = cluster_config
     
@@ -293,7 +293,7 @@ Configure the computational resources for your job. Resource allocation affects 
         
         # Cost estimate (if runtime is set)
         if self.job_config.runtime_limit:
-            cost = self.app.command_builder.estimate_cost(self.job_config)
+            cost = self.wizard_app.command_builder.estimate_cost(self.job_config)
             estimates.append(f"**Estimated Cost:** ${cost:.2f}")
         
         estimates_text.update("\\n".join(estimates))
@@ -320,7 +320,7 @@ Configure the computational resources for your job. Resource allocation affects 
                     errors.append("GPU type selection is required")
         
         if errors:
-            self.app.show_error_message("Resource Configuration Errors", errors)
+            self.wizard_app.show_error_message("Resource Configuration Errors", errors)
             return False
         
         return True
