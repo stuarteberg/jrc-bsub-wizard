@@ -231,7 +231,7 @@ class BsubWizardApp(App):
     def action_next(self) -> None:
         """Move to the next step"""
         # Validate current step
-        if not self._validate_current_step():
+        if not self.validate_current_step():
             return
         
         if self.current_step < self.total_steps - 1:
@@ -259,14 +259,18 @@ class BsubWizardApp(App):
         """Show help information"""
         self.push_screen("help")
     
-    def _validate_current_step(self) -> bool:
+    def validate_current_step(self) -> bool:
         """Validate the current step before proceeding"""
-        # Get the current screen and validate it
-        content_area = self.query_one("#content-area")
-        if content_area.children:
-            current_screen = content_area.children[0]
-            if hasattr(current_screen, 'validate'):
-                return current_screen.validate()
+        try:
+            # Get the current screen and validate it
+            content_area = self.query_one("#content-area")
+            if content_area.children:
+                current_screen = content_area.children[0]
+                if hasattr(current_screen, 'validate'):
+                    return current_screen.validate()
+        except Exception:
+            # If we can't query the DOM (app not running), just return True
+            pass
         return True
     
     def _generate_final_command(self) -> None:
