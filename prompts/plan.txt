@@ -1,0 +1,9 @@
+My institution has a compute cluster which uses the LSF cluster job scheduler.  Our deployment has a few custom options that can be used when submitting a new job which select the node type, queue name, GPU type, etc.
+
+One can read the documentation to determine the correct invocation of "bsub" for a given task, but it would be nice if a text-based "wizard" could guide the user through the various options at their disposal and construct the corresponding invocation of bsub.  I want to create that wizard.
+
+Since many of us are Python programmers, I'd like the wizard to be written in Python.  It should use a modern library for text UIs.  I'm aware of "textual" (based on "rich"), but I'd like to consider other frameworks if any other appropriate choices exist.
+
+I've exported our internal documentation about the compute cluster to a file in this directory named jrc-cluster-docs/janelia-cluster-wiki-export.txt.  (It was exported from HTML to txt, so some of the formatting might be strange, but I think the important parts are interpretable.)
+
+Please create a plan for how you would construct such an app.  Write the plan file(s) in Markdown.

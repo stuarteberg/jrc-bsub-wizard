@@ -1,0 +1,1814 @@
+Table of Contents
+
+
+  *Quick Start*
+
+Your account must be enabled to submit jobs to the cluster because it is
+a billed resource.  Please submit a helpdesk ticket and we can enable
+your account.
+
+You can submit jobs from login hosts, they are called *login1* or
+*login2,* but do not run computation. IDEs, or file copies directly on
+the login nodes.  This includes compiling codes, installing/updating
+conda environments, running jupyter/vscode/pycharm, and any mv/cp/rm
+operations that don't finish immediately. You will use the No Machine
+(NX) client for a graphical session to the login nodes or you can SSH to
+them for a command line interface. Directions on installing NX client
+can be found here </pages/viewpage.action?pageId=30746739>.   While the
+hardware on the login nodes is similar to that of the compute nodes, the
+software packages installed can be very different in terms of version
+and availability.  You will need to compile and test any codes on the
+compute nodes using aninteractive session <https://wikis.janelia.org/
+display/SCS/Janelia+Compute+Cluster#JaneliaComputeCluster-
+Interactivejobs>.  All processing needs to be submitted to the cluster
+via the scheduler.  You should not ssh directly to the compute nodes to
+run any computation.
+
+This wiki page also describes HPC in general for a beginner. HPC for
+Absolute Beginners </display/ScientificComputing/HPC+for+Absolute+Beginners>
+
+This video provides a first look at connecting to the cluster and
+getting started submitting jobs https://hhmi.hosted.panopto.com/Panopto/
+Pages/Viewer.aspx?id=a554b26c-0a8d-4431-afcc-b03d00eb99a1 <https://
+hhmi.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=a554b26c-0a8d-4431-
+afcc-b03d00eb99a1>
+
+If you are new to Linux and the command line interface, you might try
+Linux for Beginners which is available on Learning@HMMI <https://learn-
+hhmi.docebosaas.com/learn/global-search/linux>.  There are a wide
+selection of other Linux related courses available on the platform.
+
+The compute nodes have 48 or 64 cores. To request the proper amount of
+cores/memory you will use the -n ## option. You can request from 1 to 48
+or 64 slots per nodes.  Please look at the table of resources per slot
+<#JaneliaComputeCluster-ResourcesPerSlot> to figure out how many slots
+you will need. Jobs are fenced to have access to only as many CPU cores
+as they requested in slots and have a hard memory limit set based on the
+slot count also.
+
+So, for example, if you want to reserve 4 slots/cores on one of the
+nodes for your job, you would use the following command:
+
+bsub -n 4 -J Job_Name -o /dev/null 'command > output'
+
+The *bjobs *command will only display jobs from your account when run
+without additional options. If you'd like to see all of the jobs on the
+cluster, run *bjobs -u all*.  Please don't use*watch bjobs *or if you do
+set a longer increment such as*watch -n 60 bjobs.  *Or even better use
+the RTM tool as noted below in the*More Information on running and
+completed jobs <https://wikis.janelia.org/display/SCS/
+Janelia+Compute+Cluster#JaneliaComputeCluster-
+MoreInformationonrunningandcompletedjobs> *section of this page.
+
+
+If you don't set a -o option in bsub then you will receive an e-mail at
+the completion of each job. That includes array jobs where you will
+receive one per array task.
+
+The -o option does not apply to interactive jobs as the output from
+those jobs is sent to the terminal it is running from.
+
+
+  *
+  General Cluster Information*
+
+
+    Cluster Status Dashboard
+
+*https://cluster-status.int.janelia.org <https://cluster-
+status.int.janelia.org/>*
+
+We have a cluster status "dashboard" web page that provides an overview
+of current cluster usage. It's the best place to go if you need an
+answer to the "What's running on the cluster right now?" question. 
+
+
+    Job Scheduling
+
+The cluster does First-In-First-Out (FIFO) scheduling with some
+additional "fair-share" policies that prevent one or few users from
+monopolizing the cluster's resources at any given time. These policies
+can manipulate the order of the pending jobs so that, depending on the
+nature or the jobs, the order in which they were submitted does not
+necessarily equate to the order in which they are serviced. The
+scheduler sets a pending job's priority by applying a formula that takes
+into account waiting time vs recent active time, as well as the size of
+the job and resources requested.  In addition, while we try to minimize
+hard limits on the number of running jobs someone may have, there are
+some limits on the total number of slots and gpus any single account can
+have running particularly in the queues with long runtimes.  These
+values are fluid and we change them in response to usage, with the goal
+that no single account would monopolize the cluster for long (many hours
+to days) periods of time.  There is also a concept of buckets, which are
+jobs with the same resource requests.  To increase the scheduling
+efficiency once a bucket has been scheduled it will tend to keep filling
+that allocation on the compute node with other jobs from that same bucket. 
+
+
+    Billing*
+    *
+
+Cluster compute time is billed based on the number of slots requested
+and the job's duration (as measured by a standard clock) at a rate
+of *$.05/slot/hour*. GPUs for jobs are charged for their Slots but in
+addition for the number of GPUs request based on the type of GPU.  Refer
+to the GPU Queues <https://wikis.janelia.org/display/SCS/
+Janelia+Compute+Cluster#JaneliaComputeCluster-GPUQueues> table for a
+detailed list. 
+
+For example, if you request 1 slot for your job and it runs for 10 hours
+the charge would be .05 x 1 slot x 10 hours = $0.50. If you have a job
+that requires 32 slots and runs for the same 10 hours, it would cost .05
+x 32 slots x 10 hours = $16.00.
+
+Jobs that fail, exit, or are terminated are still billed for the time
+they ran.
+
+
+    Runtime Limits
+
+Setting hard runtime limits allows the scheduler to make much better
+scheduling decisions.  While the runtime estimates can help in
+estimating when a job will be done and when the resources it is using
+will be available to run other jobs, because it is not guaranteed to be
+done, the scheduler can't depend on the estimates to for scheduling
+decisions. Hard runtime limits, on the other hand, guarantee that at the
+worst case the job will be killed at the identified time and the
+resources will be available to service the next job.  This becomes
+increasingly important as the cluster reaches higher levels of
+utilization and, as a result, experiences more times when jobs are
+pending because the cluster is full.
+
+There are also cases where a job with hard runlimits set will be
+scheduled faster because it could run on slots that are being
+accumulated to service a different, larger job that is pending.  Because
+this smaller job with a runtime limit can be sure to finish in a certain
+amount of time, before the scheduler has plotted that it will have the
+resources available to service the larger job, the smaller job can run. 
+This is called backfill and relies on having runtime limits set and them
+being closer to accurate than the default 30 days, which is applied to
+jobs that do not specify any runtimes.
+
+Runtimes are also used to automatically assign new jobs to queues  as
+described in the Queues section of this page below.  While jobs without
+runtimes will still be run, they can be run faster and more effectively
+when they have runtimes set.
+
+The flags for bsub to set runtimes are -W for the hard runtime and -We
+for a runtime estimate.  It is specified in either MMMM or HH:MM format
+for both options.  This is the real time from the point the job starts
+on the compute node until it finishes (or is killed) and does not
+include the time the job is pending while waiting for resources to
+schedule it.
+
+The local queue and all the named gpu_<gpu name/type> queues have a
+maximum runtime limit of 30 days.  If you have an application that will
+require longer than 30 days to complete please submit a ticket to the
+helpdesk so it can be discussed.  Because jobs are a billed resource
+even for failed jobs, something that has such a long runtime will need
+special considerations to ensure that results are not lost due to
+hardware or software failures.
+
+The short queue has a hard runtime limit of 1 hour.
+The Interactive queue has a default runtime limit of 8 hours with a
+maximum user specified runtime limit of 48 hours. See this section of
+the cluster wiki for details:  Interactive Jobs - Runtime limits
+<http://wiki.int.janelia.org/wiki/display/ScientificComputing/
+Janelia+Compute+Cluster#JaneliaComputeCluster-Runtimelimit>The gpu_short
+queue has a hard runtime limit of 1 hour.
+Any job that exceeds its runtime limit will be terminated automatically.
+
+
+  *Cluster Specifications*
+
+
+    CPU Node Specifications
+
+
+	
+
+Rack e10 (Sky Lake)
+
+	Rack h07 (Cascade Lake)	Rack H06 (Sapphire Rapids)
+
+*Number of nodes*
+
+	32	32 	32
+
+*Cores per node*
+
+	48	48	64
+
+*Total cores per node type*
+
+	1536 	1536
+	2048
+
+*Core type*
+
+	2.7 GHz Intel SkyLake
+(Platinum 8168) 	3.0GHz Intel Cascade Lake
+(Gold 6248R)	2.8GHz Intel Sapphire Rapids
+(Platinum 8462Y+)
+
+*Memory per node*
+
+	768GB	768GB	1TB
+
+*Interconnect*
+
+	
+
+25Gbit Ethernet
+
+	25Gbit Ethernet 	100Gbit Ethernet
+
+*OS*
+
+	Rocky Linux 9.6	Rocky Linux 9.6	Rocky Linux 9.6
+
+*Cluster Software* 
+
+	IBM Spectrum LSF 10.1	IBM Spectrum LSF 10.1	IBM Spectrum LSF 10.1
+*GeekBench4*	
+
+Geekbench6 Score <https://browser.geekbench.com/v6/cpu/3535359>
+Single-Core: 965
+Multi-Core: 11,203
+
+	Geekbench6 Score <https://browser.geekbench.com/v6/cpu/3535262>
+Single-Core: 1380
+Multi-Core: 14,844	
+
+Geekbench6 Score <https://browser.geekbench.com/v6/cpu/3535191>
+Single-Core: 2157
+Multi-Core: 23,138
+
+
+    Resources Per Slot
+
+Please use the following guidelines when requesting slots using the *-n
+#* argument for *bsub*. This applies to CPU jobs (short, local, and
+interactive queues) where jobs are assigned 15GB/slot.  For GPU jobs
+please refer to the table below in the GPU Compute Cluster section of
+the page.
+The environment variable for the slots passed with -n is LSB_DJOB_NUMPROC.
+Jobs will be limited to the memory listed based on the slots requested
+and if they exceed that amount they will be terminated automatically.
+
+*Slots*	*Resources*	*Slots*	*Resources*	*Slots*	*Resources*	*Slots*	
+*Resources*
+1	1 cpu cores or 15GB	17	17 cpu cores or 255GB	33	33 cpu cores or 495GB	
+49	49 cpu cores or 735GB
+2	2 cpu cores or 30GB	18	18 cpu cores or 270GB	34	34 cpu cores or 510GB	
+50	50 cpu cores or 750GB
+3	3 cpu cores or 45GB	19	19 cpu cores or 285GB	35	35 cpu cores or 525GB	
+51	51 cpu cores or 765GB
+4	4 cpu cores or 60GB	20	20 cpu cores or 300GB	36	36 cpu cores or 540GB	
+52	52 cpu cores or 780GB
+5	5 cpu cores or 75GB	21	21 cpu cores or 315GB	37	37 cpu cores or 555GB	
+53	53 cpu cores or 795GB
+6	6 cpu cores or 90GB	22	22 cpu cores or 330GB	38	38 cpu cores or 570GB	
+54	54 cpu cores or 810GB
+7	7 cpu cores or 105GB	23	23 cpu cores or 345GB	39	39 cpu cores or
+585GB	55	55 cpu cores or 825GB
+8	8 cpu cores or 120GB	24	24 cpu cores or 360GB	40	40 cpu cores or
+600GB	56	56 cpu cores or 840GB
+9	9 cpu cores or 135GB	25	25 cpu cores or 375GB	41	41 cpu cores or
+615GB	57	57 cpu cores or 855GB
+10	10 cpu cores or 150GB	26	26 cpu cores or 390GB	42	42 cpu cores or
+630GB	58	58 cpu cores or 870GB
+11	11 cpu cores or 165GB	27	27 cpu cores or 405GB	43	43 cpu cores or
+645GB	59	59 cpu cores or 885GB
+12	12 cpu cores or 180GB	28	28 cpu cores or 420GB	44	44 cpu cores or
+660GB	60	60 cpu cores or 900GB
+13	13 cpu cores or 195GB	29	29 cpu cores or 435GB	45	45 cpu cores or
+675GB	61	61 cpu cores or 915GB
+14	14 cpu cores or 210GB	30	30 cpu cores or 450GB	46	46 cpu cores or
+690GB	62	62 cpu cores or 930GB
+15	15 cpu cores or 225GB	31	31 cpu cores or 465GB	47	47 cpu cores or
+705GB	63	63 cpu cores or 945GB
+16	16 cpu cores or 240GB	32	32 cpu cores or 480GB	48	48 cpu cores or
+720GB	64	64 cpu cores or 960GB
+
+
+  *Software Resources*
+
+
+    General Software
+
+Most software packages have been installed via the Operating System's
+package management system so it will be available in the default path.
+As the cluster uses Oracle Linux (based on Red Hat Enterprise Linux) and
+they use very stable and somewhat older versions of various packages, if
+you need a newer version of software than is in the system install
+please look in /misc/local/. We install each application in an
+individual directory with the package name and the version number
+included. Typically you will find the programs under the /misc/local/
+APPLICATION-1.2.3/bin/application. If the software you need to use is
+not already installed, let us know, so we can do it for you. However, if
+you wish, you can also install and run software from your home directory
+or lab share.
+
+Most software in /misc/local has been configured with modules to allow
+for easier loading.  The command /module avail/ will list the available
+software along with the versions and the default version when no version
+is specified in the load command.  To load software use /module load
+<application>/<optional version number>/.  Software loaded via module
+can be unloaded with /module unload <application>/.  
+
+This is an example showing the available software, loading Matlab 2021,
+showing what software is loaded, unloading Matlab, and a final list with
+no software modules loaded.
+
+[login1 - linesr@e05u15]~>module avail
+--------------------------------------------------- /usr/share/Modules/modulefiles ----------------------------------------------------
+dot  module-git  module-info  modules  null  use.own  
+
+------------------------------------------------------- /misc/local/modulefiles -------------------------------------------------------
+bedtools/2.30.0(default)  emboss/6.6.0(default)   hmmer/3.3.2(default)  matlab/2023a                oneapi/2024(default)      
+bowtie/1.3.1(default)     ffmpeg/6.0(default)     idl/8.5(default)      matlab/2023b(default)       R/4.2.2(default)          
+bowtie2/2.5.1(default)    gcc/12.3                matlab/2021b          ncbi-blast/2.13.0(default)  samtools/1.16.1(default)  
+cmake/3.27.7(default)     gcc/13.1(default)       matlab/2022a          null                        spark/3.4.0               
+cmtk/3.3.2(default)       gurobi/10.0.3(default)  matlab/2022b          oneapi/2023                 spark/3.4.1(default)      
+[login1 - linesr@e05u15]~>module load matlab/2021b
+[login1 - linesr@e05u15]~>module list
+Currently Loaded Modulefiles:
+ 1) matlab/2021b  
+[login1 - linesr@e05u15]~>module unload matlab
+[login1 - linesr@e05u15]~>module list
+No Modulefiles Currently Loaded.
+
+
+    OneAPI (Formerly Intel Compiler)
+
+The default compiler is gcc. If you'd like to use Intel OneAPI compiler
+(icx/icpx) on the cluster you can use /module load oneapi/ to load the
+all the environment variables for the OneAPI compiler.
+
+[login1 - linesr@e05u15]~>module avail oneapi
+------------------------------------------------------- /misc/local/modulefiles -------------------------------------------------------
+oneapi/2023  oneapi/2024(default)  
+[login1 - linesr@e05u15]~>module load oneapi
+[login1 - linesr@e05u15]~>module list
+Currently Loaded Modulefiles:
+ 1) oneapi/2024(default)  
+
+
+    *Setting up LSF Environment*
+
+The Janelia Compute Cluster uses IBM Spectrum LSF for its queuing and
+job scheduling system. In order to utilize it, you first need to log
+into one of the login servers using ssh or No Machine client. If you are
+using bash shell (the default shell), all of the LSF related environment
+variables are automatically set up for you by the system's login
+scripts. If you plan to run submission commands from cron or from some
+other script and find you have trouble you may need to add the following
+to the beginning of the script to have your environment set up properly.
+
+. /etc/profile.d/profile.lsf.sh
+
+
+  *Storage Resources*
+
+
+      PRFS - /groups/... 
+
+This is the primary location for scientific data.  It provides great all
+around performance.  This includes great metadata performance as well as
+highly concurrent and high throughput access that typical cluster usage
+would create.   It also includes nightly backups with thirty days of
+retention off site to ensure that data are well protected.  There is a
+list of all the shares for PRFS on this wiki page </display/SCS/
+Lab+and+Project+File+Share+Paths>. If your files are irreplaceable or
+would be very costly to replace this is the location they should be stored.
+
+
+      NonRedundant Storage  - /nrs/...
+
+This is a less expensive storage tier for computationally reproducible
+data.  The performance characteristics can very based the the file size/
+type, access pattern and other activity on the storage system at the
+same time.  Interactive workflows may be negatively impacted by heavy
+cluster job activity.
+
+This space is not backed up in any way and should be used for data that
+is being actively processed and is computationally reproducible.
+
+
+      Node Local Scratch - /scratch/...
+
+Each compute node has space on a local ssd drive set aside as scratch
+space for temporary or transient files created during a compute task. 
+This space is local to each node and not shared between the compute
+nodes so it is optimal for writing files that are only needed for the
+length of the job.  Everyone who has been enabled for cluster access has
+a scratch folder at /scratch/<username> on every node.  Each node has
+~25GB of local scratch space per slot. Please ensure that you clean up
+files that are created during yourjob run before the job ends so that it
+is available for other jobs that will be scheduled to the node. This
+space is not charged for but is cleaned regularly to remove old files.
+
+
+      More details are available about the storage systems here: 
+
+Storage Resources <https://wikis.janelia.org/display/SCS/
+Accounts%2C+Passwords%2C+and+Network+File+Storage>
+
+Storage Chargebacks </display/SCS/Storage+Chargebacks>
+
+
+    Data Movement
+
+The cluster was designed to minimize data movement for active projects. 
+By providing access to both primary storage on PRFS and transient
+working storage on NRS to the cluster as well as all computers in the
+building and VPN the need to copy data between tiers is minimized.  When
+you do need to copy or move data between shares, the cluster network is
+optimized for high bandwidth data transfers so it is the best place to
+copy data between PRFS and NRS.  Please make sure you submit it as a job
+to the cluster so it is run on a compute node rather than on the login
+servers.  Heavy I/O operations can bog down the login servers and they
+do not have the same higher bandwidth network cards compute nodes are
+equipped with. 
+
+Sometimes you may need to move data to or from nearline which is not
+available on the cluster.  You can easily copy it with your laptop or
+desktop that are connected to the wired network at Janelia.  In the case
+that you are working remotely or don't have a computer connected to the
+wired network we have a data transfer node available where you can use a
+variety of command line linux tools.  That host is *dtn.int.janelia.org*
+and is available via ssh.  There is a document listed in the login
+message with examples of rsync and msrsync commands for copying data.  
+
+If you have very large (1+TB) datasets that are now cold and should be
+moved to nearline please submit a ticket with path(s) and we will be
+happy to help with moving them.
+
+Janelia also has a subscription for Globus that can be used to exchange
+data with outside groups but also for copying between storage on
+campus.  Information on using Globus can be found on this wiki page:
+Globus at Janelia </display/SCS/Globus+at+Janelia>
+
+
+  *Submitting Jobs to the Cluster*
+
+Jobs must be submitted to the cluster from one of the login nodes, or
+can be submitted from other cluster members. The login node addresses
+are as follows: 
+
+*login1.int.janelia.org*
+
+*login2.int.janelia.org*
+
+In addition we have a command line only submit host.  Because it does
+not host GUI desktops with the No Machine server, light preprocessing
+tasks can be run on it to facilitate submitting jobs.  If you find it
+too slow or your preprocessing does not fit in the single core and 16GB
+of memory that is shared with everyone using the node, it should be run
+in a job on the cluster instead.  The hostname is:
+
+*submit.int.janelia.org*
+
+All jobs are submitted to the cluster via the bsub command. There are
+many job submission options but the most common are listed below.
+
+
+    Common Job Submission Options
+
+Here are the most common submission options:
+
+Option	Description
+
+-J <job name>
+
+	The name you want to give the job (see below for naming considerations)
+
+-n <# slots>
+
+	
+
+The number of slots your job will require (between 1 and 64)
+The environment variable in the job for the number of slots will be
+LSB_DJOB_NUMPROC
+
+-o <file name>
+
+	File to send standard output (This option can not be used with
+Interactive Jobs)
+
+-e <file name>
+
+	File to send standard error (This option can not be used with
+Interactive Jobs)
+-W <minutes> or
+-We <minutes>	
+
+The -W is the hard runtime or the maximum that your job will be allowed
+to run. If it is still running when the timer finishes it will be killed.
+The -We is a suggestion or estimate to the scheduler of about how long
+you expect your job to run. While the estimate can help a bit in
+scheduling the hard runtime is a better and more effective for the
+scheduler to optimize job placement
+-We will not kill the job if it exceeds the time but the value should be
+the best estimate you have for your runtime. The exception being if your
+estimate results in the job being placed in the short or gpu_short
+queues, then the 1 hour limit applies.
+
+
+    Job naming considerations
+
+When using the -J option please avoid using names with the following things:
+
+  * Your username or someone else's username
+  * Spaces in the name
+  * The words spark, janelia, master or int
+
+These are all items that are used by the monitoring and status tools and
+using them can cause confusing output on those tools.
+
+Note that the -J option is also used for creating Job Arrays.  See below
+for additional information.
+
+
+  Queues
+
+There are 3 queues for CPU computing; short, local, and interactive. 
+For details on the queues related to GPU computing, please look at this
+section of the page below.  By default the queue CPU jobs are assigned
+to is based on the runtime specified for the job and does not require
+you to specify a queue by name. 
+
+Queue	Runtime limit	Description
+interactive	
+
+Default 8 hours
+Maximum configurable 48 hours
+
+	Interactive jobs are used for applications that require the person
+running them to provide input through the course of the execution. This
+could either be via the command line or more commonly a GUI. An
+interactive job submitted without a runtime limit will default to 8
+hours and be killed when it reaches that limit. This can be set longer
+when submitting the job up to 48 hours.  There is a limit of 96 slots or
+4 jobs running for any single account in this queue.
+local	30 days	For jobs that do not specify a runtime they will default
+to this queue. It will run only on the CPU optimized nodes in the local
+Janelia data center.  There is limit of 3001 slots running for any
+single account in this queue.
+short	1 hour	For jobs that run less than an hour the short queue allows
+using all available CPU Optimized nodes without a slot limit per user.
+Typically even when the cluster is full jobs in the short queue will be
+able to find space to run sooner than jobs in other queues. This allows
+them to get in and out quickly because of their shorter and dependable
+runtimes.
+Jobs that specify a runtime less than an hour will be placed in the
+short queue.
+
+
+
+    Types of Jobs
+
+The LSF system recognizes the following four basic classes of jobs:
+
+Job Type	Description
+*Batch*	Single segments of work. Typically, a batch job is only executed
+once.
+*Array*	Groups of similar work segments that can all be run in parallel
+but are completely independent of one another. All of the workload
+segments of an array job, known as tasks, are identical except for the
+data sets on which they operate.
+*Parallel*	Jobs composed of cooperating tasks that must all be executed
+at the same time, often with requirements about how the tasks are
+distributed across the resources. For example MPI jobs.
+*Interactive*	Jobs that provide the submitting user with an interactive
+login to an available resource in the compute cluster. Interactive jobs
+allow users to execute work on the compute cluster that is not easily
+submitted as a batch job. It can also be used for testing new workflows
+or diagnosing issues interactively.
+
+The scheduler is also much more efficient the fewer jobs it is trying to
+prioritize. We suggest that you not submit more than 15,000 jobs at a
+time. If you have hundreds of thousands of jobs because they are many
+small jobs it would be best to create a script that would do multiple
+stages of the processing on the data and submit that script rather than
+submitting a separate job for each stage of processing.  It is also a
+best practice if multiple operations need to performed on the same file
+all those operations be run as the same job to take advantage of system
+caching. Also the use of array jobs creates much lower overhead on the
+job scheduler and is an excellent fit for submitting large numbers of
+identical jobs with the only difference being the individual data file
+that is being processed. If you have an questions on how to optimize
+your job submissions please feel free to submit a helpdesk ticket and we
+will be happy to assist you..
+
+
+      Batch jobs
+
+Batch jobs can be single or multi-threaded up to 64 which is the maximum
+available on a single system, and they are submitted using bsub command
+and few options to it.  Requesting more slots than any one node has will
+not automatically make the code spread to multiple nodes.  That would
+require code that supports multi-node parallelism as is described in the
+Parallel / MPI Jobs section below.
+
+*Single-Threaded Jobs*
+
+bsub -n 1 -J <job_name> -o /dev/null 'command > output'
+
+*Multi-Threaded or Larger Memory Jobs*
+
+bsub -n <1 - 64> -J <job_name> -o /dev/null 'command > output'
+
+If you need to run a large number of jobs, you could do something like
+generating a list of all of the jobs you want to run and submit and run
+this list as a script. For example:
+
+% #!/bin/sh
+bsub -J job_name1 -o /dev/null 'command1 > output1'
+bsub -J job_name2 -o /dev/null 'command2 > output2'
+bsub -J job_name3 -o /dev/null 'command3 > output3'
+.
+.
+.
+bsub -J job_nameN -o /dev/null 'commandN > outputN'
+
+
+      Array jobs
+
+You can also submit a large number of certain types of jobs using "array
+jobs" LSF feature. For example, if you have n input files named file.1,
+file.2, file.3...file.n and need to process them in the exact same way,
+you can use *-J "JobName[1-n]"* bsub option.  the Job Name is in the
+variable $LSB_JOBNAME on the compute node.
+
+bsub -n <slots> -J "jobname[1-n]" -o /dev/null 'command file.\$LSB_JOBINDEX > output.\$LSB_JOBINDEX'
+
+Here $LSB_JOBINDEX environment variable takes values from 1 to n, so
+using this one line, you can submit n jobs using n different inputs and
+producing n different outputs.
+
+Note that your input files have to be named in such a way that in their
+name they contain a number that corresponds to one of the numbers in
+LSB_JOBINDEX range. 
+
+For example, if you had 100 sequences named seq.1 to seq.100 and wanted
+to blast them against nt:
+
+bsub -n 16 -J "blast_array[1-100]" -o /dev/null 'blastall -p blastn -d nt -i seq.\$LSB_JOBINDEX > output.\$LSB_JOBINDEX'
+
+
+        Limiting the number of concurrent jobs
+
+When it's desirable to limit or throttle how many array members can run
+concurrently, specify the limit by adding *%val* in the submission. In
+this example, no more than 15 jobs will run simultaneously.
+
+bsub -J “myArray[1-1000]%15” /path/to/mybinary input.\$LSB_JOBINDEX
+
+
+        Maximum number of elements in an Array
+
+A single array is limited to 1 million elements.  You can submit
+multiple arrays each with up to 1 million elements if you have a larger
+processing requirement.
+
+
+      Parallel / MPI jobs
+
+To run parallel jobs you need to compile your mpi applications using
+Intel MPI compiler. This is an example of how to run an mpi job:
+
+bsub -J myMPIjob -o /dev/null -q mpi -app parallel-48 -n <slots in increments of 48> mpirun -n <number matches the -n for bsub> /path/to/myMPIapplication_binary
+
+You will need to load the Intel OneAPI software or have another mpi
+library in your path that includes the mpirun command for starting
+multinode parallel applicaitons.
+
+This will request entire nodes to reduce the inter-node communication
+overhead.  This is handled by the -app parallel-48 bsub option which
+sets up the various flags for the job to be submitted properly.  The
+largest group of compute nodes have 48 slots each that is why you are
+requesting them in increments of 48.
+
+
+      Interactive jobs
+
+An interactive job is used for running code that requires user
+interaction to run.  One example are GUI applications that require
+clicking buttons to perform operations.  A second example would be a
+command line application that requests user input when run.  These types
+of jobs do not lend themselves to running at scale due to the reliance
+on a person to interact with them.  But they are useful for testing code
+so that you can watch the output as the application is running.
+
+
+        Runtime limit
+
+Interactive jobs have a default hard runtime of 8 hours.  You may
+request up to a 48 hour runtime using the -W bsub option.  The -W option
+takes the argument in the format (MM)MM or HH:MM.
+
+bsub -n 1 -W 8:00 -Is /bin/bash
+
+
+        Slot limit
+
+Each user can have up to 96 slots or 4 jobs running in the Interactive
+queue, whichever is reached first.  To run more jobs in parallel they
+should be submitted as batch jobs.
+
+
+        Example Interactive job commands
+
+At the very basic, this will request a single slot interactive job on a
+compute node:
+
+bsub -n 1 -Is /bin/bash
+
+This does xforwarding to NoMachine on the login nodes by default. 
+
+Add -n <slots> for more than one slot.
+
+bsub -n 48 -Is /bin/bash
+
+
+        Notification when the job starts
+
+Sometimes your interactive job is requesting more resources than are
+currently available.  You can be emailed when your job is scheduled to a
+compute node.  This can be done by adding a -B to your bsub command
+
+bsub -n 48 -B -Is /bin/bash
+
+
+        Jupyter Notebook
+
+Here is an example bsub command to submit the jupyter notebook process
+as a job to the cluster.  *This assumes that a version of python with
+the jupyter module is in your $PATH.  Otherwise you will need to specify
+the full path to jupyter.* There are double quotes around the entire
+jupyter command.
+
+
+bsub -J Jupyter -n16 -W 120 " export JUPYTER_RUNTIME_DIR=/scratch/$USER; jupyter notebook --ip 0.0.0.0  --no-browser "
+
+You may have some odd formatting if you copy and paste from the wiki. It
+will be best to retype to avoid hidden formatting being included.
+
+
+Then once it is running you can find the hostname with bjobs in the
+exec_host column
+
+JOBID      USER    STAT  QUEUE      FROM_HOST   EXEC_HOST   JOB_NAME   SUBMIT_TIME
+97021178   linesr  RUN   local      e05u12      16*h10u09   Jupyter    Apr 28 08:56
+
+Configurable options
+
+-n 16 is requesting 16 slots but you should adjust to request the number
+of slots needed for your cpu and memory requirements.
+
+-W 120 sets a hard runtime limit of 120 minutes.  Adjust this to how
+long you plan to use the notebook.  If you you remove this option the
+job will run until you terminate it or 30 days, whichever comes first.
+
+--ip 0.0.0.0 makes the jupyter server listen on all IP addresses of the
+compute node as the default is to only listen on the local loopback
+address which would keep you from accessing it remotely.
+
+--no-browser is needed as you will not be starting the web browser on
+the compute node but rather opening a browser on your computer and
+accessing it remotely.
+
+
+You will use the bpeek <job id> command to look at the output of the job
+for the hostname and port is has been assigned.  For the example above
+it would be bpeek 97021178.  If you aren't running lots of other jobs
+you can just use bpeek without a jobid and it will default to the
+lastest job you submitted.
+
+bpeek
+<< output from stdout >>
+[I 13:13:06.036 NotebookApp] The port 8888 is already in use, trying another port.
+[I 13:13:06.036 NotebookApp] The port 8889 is already in use, trying another port.
+[I 13:13:06.041 NotebookApp] Serving notebooks from local directory: /groups/scicompsys/home/linesr
+[I 13:13:06.041 NotebookApp] Jupyter Notebook 6.1.5 is running at:
+[I 13:13:06.041 NotebookApp] http://h10u09.int.janelia.org:8890/?token=64f82019a352026bf40e1c769d8723dcbbbdc658e3b19f53
+[I 13:13:06.041 NotebookApp]  or http://127.0.0.1:8890/?token=64f82019a352026bf40e1c769d8723dcbbbdc658e3b19f53
+[I 13:13:06.041 NotebookApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
+[C 13:13:06.048 NotebookApp] 
+    
+    To access the notebook, open this file in a browser:
+        file:///linesr/nbserver-2256002-open.html
+    Or copy and paste one of these URLs:
+        http://h10u01.int.janelia.org:8890/?token=64f82019a352026bf40e1c769d8723dcbbbdc658e3b19f53
+     or http://127.0.0.1:8890/?token=64f82019a352026bf40e1c769d8723dcbbbdc658e3b19f53
+
+
+Use the fully qualified hostname URL rather than the one with the
+127.0.0.1 local loopback address to connect to your notebook in the
+browser on your laptop or workstation.  Web browsers are not installed
+on the login nodes.
+
+You need kill the job when you are done with it using bkill <job id>
+Give it 10 to 15 seconds to shut down and you can use the bjobs command
+to see that it has disappeared. It can take up to 30 seconds to shut
+down all the process and report back to the scheduler that the job has
+been terminated so don’t worry if it isn’t instantly gone.
+
+
+        VSCode
+
+There are two options for using VSCode on the compute cluster.  
+
+It is important that you don't use the connect to remote server with ssh
+option in vscode to connect to a compute node.
+
+The first is to connect with the No Machine client to one of the login
+nodes.  Then start an interactive job so you have a shell running on a
+compute node.  The first time you will need to install vscode for linux
+into your home directory.  This StackOverflow thread is very helpful. 
+ https://stackoverflow.com/questions/63974747/install-vscode-as-a-non-
+root-user-on-a-linux-distribution <https://stackoverflow.com/
+questions/63974747/install-vscode-as-a-non-root-user-on-a-linux-
+distribution>  You will download the tar rather than the .rpm or .deb
+package and extracting it somewhere in your home directory.   Once it is
+there you start it with ./code in the directory you extracted it to.
+ That will start vscode running on the compute node with the GUI being
+forwarded back to your No Machine session.   In the future you would
+only have to start the interactive job and then run ./code in that
+directory unless you add it to your path. 
+
+After you have downloaded and put the code-stable-x64-<VERSION>.tar.gz
+file in your home directory here is an example of installing it the
+first time and starting the VSCode IDE in an interactive job.  The
+resulting GUI will be displayed in No Machine.
+
+[Login1 - linesr@e02u30]~>bsub -n 1 -Is /bin/bash
+This job will be billed to scicompsys
+Job <139169502> is submitted to default queue <interactive>.
+<<Waiting for dispatch ...>>
+<<Starting on h06u01>>
+[Compute Node - linesr@h06u01]~>tar -xf code-stable-x64-1712150767.tar.gz     ## This extracts it to a folder called VSCode-linux-x64 and only should be done the first time to install the software.
+[Compute Node - linesr@h06u01]~>cd VSCode-linux-x64/bin/                      ## Change to the bin directory for VSCode
+[Compute Node - linesr@h06u01]~/VSCode-linux-x64/bin>unset XDG_RUNTIME_DIR    ## Required because this is GUI application running in an interactive session and must be run one for each interactive job for VSCode
+[Compute Node - linesr@h06u01]~/VSCode-linux-x64/bin>./code                   ## Starts VSCode
+
+
+## Future jobs can use the shortcut of specifying the full path or adding the bin directory for VSCode to your path
+[Login1 - linesr@e02u30]~>bsub -n 1 -Is /bin/bash
+This job will be billed to scicompsys
+Job <139169661> is submitted to default queue <interactive>.
+<<Waiting for dispatch ...>>
+<<Starting on h06u01>>
+[Compute Node - linesr@h06u01]~>unset XDG_RUNTIME_DIR
+[Compute Node - linesr@h06u01]~>VSCode-linux-x64/bin/code
+
+
+The second option is to use code-server https://github.com/coder/code-
+server <https://github.com/coder/code-server> which you can run as a job
+and then open via a web browser using the url it provides at startup.
+ This is similar to running a Jupyter notebook documented above https://
+wikis.janelia.org/pages/viewpage.action?
+spaceKey=SCS&title=Janelia+Compute+Cluster#JaneliaComputeCluster-
+JupyterNotebook <https://wikis.janelia.org/pages/viewpage.action?
+spaceKey=SCS&title=Janelia+Compute+Cluster#JaneliaComputeCluster-
+JupyterNotebook>. 
+
+While you could build code-server from source it's installer script
+expects sudo access to the computer which isn't possible on the compute
+cluster.  Instead you will download their prebuilt binaries from
+https://github.com/coder/code-server/releases <https://github.com/coder/
+code-server/releases> You are looking for the one named like this: code-
+server-<VERSION>-linux-amd64.tar.gz 
+
+[Login1 - linesr@e02u30]~>bsub -n 1 -Is /bin/bash
+This job will be billed to scicompsys
+Job <139168581> is submitted to default queue <interactive>.
+<<Waiting for dispatch ...>>
+<<Starting on h07u01>>
+[Compute Node - linesr@h07u01]~>tar -xf code-server-4.23.0-linux-amd64.tar.gz    ## Extracts to code-server-<VERSION>-linux-amd64/
+[Compute Node - linesr@h07u01]~>code-server-4.23.0-linux-amd64/bin/code-server   ## You need to start code-server once to have your configuration directories created.  ctrl+c to exit it
+[2024-04-09T20:46:13.747Z] info  Wrote default config file to /groups/scicompsys/home/linesr/.config/code-server/config.yaml
+<snip>
+## The first line of output will give you the path to the config file to edit so you don't have include everything as a command line argument
+[Compute Node - linesr@h07u01]~>vi /groups/scicompsys/home/linesr/.config/code-server/config.yaml
+## This is the default config file contents.  It only binds to the local loopback ip address, has a randomly created password, and uses http rather than https
+bind-addr: 127.0.0.1:8080
+auth: password
+password: 6a98bab31959332625b09833
+cert: false
+## Edit the file to the following
+bind-addr: 0.0.0.0:9001                 ## 0.0.0.0 means listen on all addresses for all the hosts network interfaces.
+										## 9001 is the port to listen on.  It needs to be unique and unused as code-server doesn't automatically pick an open port
+auth: password
+password: YourSecurePassword!           ## Pick a password you will use to log into the web site
+cert: true                              ## This generates a selfsigned certificate and enables https for your connection
+
+## Because you are putting a password in this config file you should remove all but owner permissions.  Use the path to your config file.
+[Compute Node - linesr@h07u01]~>chmod 700 /groups/scicompsys/home/linesr/.config/code-server/config.yaml
+
+## Now when you start the server you will get something like this. Importantly it shows an HTTPS server listening on https://0.0.0.0:9001 and authentication is enabled.
+
+[Compute Node - linesr@h07u01]~>unset XDG_RUNTIME_DIR
+[Compute Node - linesr@h07u01]~>code-server-4.23.0-linux-amd64/bin/code-server
+[2024-04-09T20:59:58.355Z] info  code-server 4.23.0 73e615da4e78fa28b71331e4c31913099aa887b4
+[2024-04-09T20:59:58.356Z] info  Using user-data-dir /groups/scicompsys/home/linesr/.local/share/code-server
+[2024-04-09T20:59:58.403Z] info  Using config file /groups/scicompsys/home/linesr/.config/code-server/config.yaml
+[2024-04-09T20:59:58.403Z] info  HTTPS server listening on https://0.0.0.0:9001/
+[2024-04-09T20:59:58.403Z] info    - Authentication is enabled
+[2024-04-09T20:59:58.403Z] info      - Using password from /groups/scicompsys/home/linesr/.config/code-server/config.yaml
+[2024-04-09T20:59:58.403Z] info    - Using certificate for HTTPS: /groups/scicompsys/home/linesr/.local/share/code-server/localhost.crt
+[2024-04-09T20:59:58.404Z] info  Session server listening on /groups/scicompsys/home/linesr/.local/share/code-server/code-server-ipc.sock
+
+## You can now open a browser on your local computer and connect to the running code-server.  But you will need to provide the full hostname and port.
+## Using this job as an example the hostname is in the prompt h07u01, the domain name is int.janelia.org, and we know the port we set was 9001.  You would enter https://h07u01.int.janelia.org:9001/
+## You will be prompted for the password you set in the config.yaml file.
+
+When you are done you can ctrl+c to kill the web server and exit the
+interactive session.  You can check with bjobs to verify it has ended.
+
+To start code-server in the future you can either submit an interactive
+job and start it by hand or you could submit it like a batch job.
+
+[Login1 - linesr@e02u30]~>unset XDG_RUNTIME_DIR
+[Login1 - linesr@e02u30]~>bsub -n 1 -W 2:00 code-server-4.23.0-linux-amd64/bin/code-server   ## This submits a single slot job with a 2 hour run limit that runs the command to start code server
+This job will be billed to scicompsys
+Job <139169871> is submitted to default queue <local>.
+[Login1 - linesr@e02u30]~>bjobs                                                             ## Checking to see that the job has started and what compute node it is running on
+JOBID      USER    STAT  QUEUE      FROM_HOST   EXEC_HOST   JOB_NAME   SUBMIT_TIME
+139169871  linesr  RUN   local      e02u30      e10u15      *de-server Apr  9 17:10
+[Login1 - linesr@e02u30]~>bpeek                                                             ## Checking that it started the web server and there were no errors or port conflicts.
+<< output from stdout >>
+[2024-04-09T21:10:48.991Z] info  code-server 4.23.0 73e615da4e78fa28b71331e4c31913099aa887b4
+[2024-04-09T21:10:48.992Z] info  Using user-data-dir /groups/scicompsys/home/linesr/.local/share/code-server
+[2024-04-09T21:10:49.080Z] info  Using config file /groups/scicompsys/home/linesr/.config/code-server/config.yaml
+[2024-04-09T21:10:49.080Z] info  HTTPS server listening on https://0.0.0.0:9001/
+[2024-04-09T21:10:49.080Z] info    - Authentication is enabled
+[2024-04-09T21:10:49.080Z] info      - Using password from /groups/scicompsys/home/linesr/.config/code-server/config.yaml
+[2024-04-09T21:10:49.080Z] info    - Using certificate for HTTPS: /groups/scicompsys/home/linesr/.local/share/code-server/localhost.crt
+[2024-04-09T21:10:49.080Z] info  Session server listening on /groups/scicompsys/home/linesr/.local/share/code-server/code-server-ipc.sock
+
+
+## To get the url for the server in this case you need to look at the EXEC_HOST column to get the hostname and you can double check your port number from the bpeek output.
+## For this example the url would be https://e10u15.int.janelia.org:9001/
+
+
+If you don't set a runlimit on the version submitted as a batch job you
+will need to use bkill <jobid> to end it otherwise it will run up to 30
+days.
+
+
+        Interactive Matlab
+
+Please do not run matlab directly on the login nodes.  It should be
+submitted as an interactive job.
+
+*This will start a matlab gui automatically *(you must have matlab in
+your path as described in the Running Matlab at Scale </display/SCS/
+Running+Matlab+At+Scale> page)
+
+bsub -XF -n 64 matlab -desktop
+
+This command will run a Matlab desktop job on a compute node and forward
+the session back to the nomachine session on the login node. This
+example is to run on a 64 slot node, but you could change the -n64 to a
+smaller number if it fits your resource requirements. 
+
+*You can also use a normal interactive session then start matlab from it.*
+
+bsub -n 64 -Is /bin/bash
+
+
+        Interactive FIJI
+
+Running Fiji on the Compute Cluster </display/SCS/
+Running+Fiji+on+the+Compute+Cluster>
+
+
+        Interactive Jobs with GUI and SSH
+
+*Example X forwarding Error*
+
+Oct 21 19:28:00 2015 41543 3 10.1 xagent main: getenv(DISPLAY) failed.
+
+
+Some combinations of Mac OS, Windows, and Linux clients using ssh to
+connect to the login nodes and then attempting to run a GUI application
+in an interactive session will not work properly.  The multiple layers
+of X Forwarding is incompatible in certain combinations.  If you have
+trouble running the Interactive matlab this way and the regular /bin/
+bash interactive session works with command line only tools, we
+recommend using the No Machine client <http://wiki.int.janelia.org/wiki/
+pages/viewpage.action?pageId=65638201>.
+
+
+      Spark
+
+For details on how to set up your account environment to run Spark and
+how to submit jobs to the cluster please look at the Spark on LSF </
+display/ScientificComputing/Spark+on+LSF> page.
+
+
+    Output and Error Files
+
+Note that LSF emails you a copy of the stdout and stderr along with a
+summary of the job completion information.  If you want log files, you
+can use the -o and -e options.
+
+There are also variables that can be used in the -o and -e options, e.g.
+%J for job id and %I for the array index if applicable. See |man bsub|
+for more information.
+
+When -o is specified, the system will not send an e-mail.
+
+If you don't set a -o option in bsub then you will receive an e-mail at
+the completion of each job. That includes array jobs where you will
+receive one per array task.
+
+
+    Environment Variables
+
+By default the environment that bsub is run from will be passed to the
+job running on the compute node.
+
+
+    Janelia Specific Submission Flags
+
+There are a number of flags that can be used when submitting jobs that
+are specific to Janelia.
+
+Flag
+
+	
+
+What it does
+
+	
+
+Typical uses
+
+-R"select[avx2]"	Requests a node that supports the AVX2 Instruction set.
+Intel CPUs from the Haswell family and later.	
+
+Advanced Vector Extensions (AVX) was introduced with Sandy Bridge CPUs
+and are available in subsequent Intel CPUs. AVX2 also known as Haswell
+New Instructions were introduced with the Haswell architecture and are
+available in that CPU and later models. If you compile code that takes
+advantage of the AVX2 instructions it will only run on Haswell or newer
+CPUs. For more information on AVX here is the wikipedia entry <https://
+en.wikipedia.org/wiki/Advanced_Vector_Extensions>.
+
+*This option is no longer required as there are no longer any nodes in
+the cluster that do not support the AVX2 instructions.*
+
+-R"select[avx512]"	Requests a node that supports the AVX512 Instruction
+set. Intel CPUs from the SkyLake family and later. This includes Cascade
+Lake	
+
+AVX-512 are 512-bit extensions to the 256-bit Advanced Vector Extensions
+SIMD instructions for x86 instruction set architecture proposed by Intel
+in July 2013, and scheduled to be supported in 2015 with Intel's Knights
+Landing processor.
+
+AVX-512 instruction are encoded with the new EVEX prefix. It allows 4
+operands, 7 new 64-bit opmask registers, scalar memory mode with
+automatic broadcast, explicit rounding control, and compressed
+displacement memory addressing mode. The width of the register file is
+increased to 512 bits and total register count increased to 32
+(registers ZMM0-ZMM31) in x86-64 mode. For more information on AVX-512
+here is the wikipedia entry <https://en.wikipedia.org/wiki/AVX-512>
+
+
+    Applications that require licenses
+
+These applications can be run either in batch mode or interactively by
+using interactive session. While you're logged in, one of the available
+licenses is allocated to you. If you are not using the application,
+please close it and exit your interactive session, so that you free up
+the license for someone else to use. 
+
+
+      Matlab
+
+
+        Please do not run matlab on the login nodes
+
+For information on using Matlab at Scale please refer to this wiki page
+Running Matlab At Scale </display/SCS/Running+Matlab+At+Scale>.   
+
+
+      IDL
+
+IDL can be loaded into your path with /module load idl./
+
+We have two full floating IDL licenses and 528 (3168 units) IDL runtime
+licenses. IDL licenses are requested in units of 6, so you need to run
+bsub with *-R"rusage[idl=6]"* or *-R"rusage[idl_rt=6]" *options. 
+
+
+  Job Environment Variables
+
+Variable	Use	Example
+$LSB_JOBID	
+
+This is the Job ID number for example
+
+
+	LSB_JOBID=13234
+
+$LSB_JOBINDEX
+
+	This is the Array Task Index value for an Array Job	LSB_JOBINDEX=3
+$LSB_JOBINDEX_STEP	This is the Array Step value or how it should count
+off the elements of the array	LSB_JOBINDEX_STEP=1
+$LSB_BATCH_JID	This is a combined JobID and Array Task Index value
+
+
+	
+
+LSB_BATCH_JID=13234[3]
+
+$LSB_DJOB_NUMPROC
+
+	This is the value of -n in your bsub command	LSB_DJOB_NUMPROC=1 (values
+between 1 and 32)
+$LSB_JOBNAME	this is the value of -J aka the job name	
+LSB_JOBNAME=MyAwesomeJobName
+
+
+  Graphical applications that may try to use /run/user/USERID folder
+
+If you receive an error in a job that is is unable to write to /run/
+user/<userid> or that it doesn't have permissions to that folder it is
+likely your application is picking up on the run namespace that exists
+on the login nodes when you login with a full terminal or NX session. 
+These folders are not created when a job is run on a compute node but
+the environment variable that was set in your shell on the login nodes
+may be passed through to the job's environment.  You can fix most of
+these issues by running/unset XDG_RUNTIME_DIR /either before submitting
+your job or inside your job before running any applications.  This
+problem can also happen with some python modules such as a jupyter notebook.
+
+
+  Monitoring and Modifying Existing Jobs
+
+You can monitor job status/progress by using the *bjobs* command and its
+options. Usually you would just run *bjobs or * *bjobs -u all.*
+
+Jobs can be in following states:
+
+Code	Description
+RUN	running
+PEND	pending aka queued
+UNKNOWN	There is a problem communicating with the node where the job is
+running.
+This may be a transient condition or the node may be offline.
+
+
+    Job Management Examples (how to kill a running job)
+
+NOTE: You can see your job ids by running *bjobs* command.
+
+Task	Command
+delete all of your jobs	
+
+bkill 0
+
+delete individual jobs	
+
+bkill <job id>
+
+delete an array job and all its instances	
+
+bkill <job id>
+
+delete a single array job task	
+
+bkill "<job id>[<task#>]"
+bkill "12354[321]"
+
+delete a number of tasks in a job array	
+
+bkill "12354[1-15, 321, 500-600]"
+
+delete all jobs called <jobname>	
+
+bkill -J <jobname> 0
+
+delete all jobs in <queue>	
+
+bkill -q <queue> 0
+
+
+  *GPU Compute Cluster*
+
+
+    Available GPUs
+
+GPU model	VRAM (GB)	
+
+TFLOPS
+(single)
+
+	Geekbench6
+GPU Score	Number available	Total GPUs	Average Slots Per GPU	Model Strings
+GH200 96GB	96	67	
+	One node with 1 GPUs	1	72 slots per gpu	NVIDIAGH200480GB
+H200 SXM5 Interconnect 141GB	141	67	338,868 <https://
+browser.geekbench.com/v6/compute/3849387>	Eight nodes each with 8 GPUs	
+64	12 slots per gpu	NVIDIAH200
+H100 SXM5 Interconnect 80GB	80	67	282,539 <https://
+browser.geekbench.com/v6/compute/1481513>	Ten nodes each with 8 GPUs	80	
+12 slots per gpu	NVIDIAH10080GBHBM3
+A100 SXM4 Interconnect 80GB	80	19	215,387 <https://
+browser.geekbench.com/v6/compute/1282489>	Nineteen nodes each with 4
+GPUs	76	12 slots per gpu	NVIDIAA100_SXM4_80GB
+L4 PCIe cards (Dense)	24	30.3	151,688 <https://browser.geekbench.com/v6/
+compute/1282437>	Eighteen nodes each with 8 GPUs	144	8 slots per gpu	
+NVIDIAL4
+L4 PCIe cards 	24	30.3	151,688 <https://browser.geekbench.com/v6/
+compute/1282437>	Thirty-one nodes each with 1 GPU	31	64 slots per gpu	
+NVIDIAL4
+T4 PCIe cards	16	8.1	82,888 <https://browser.geekbench.com/v6/
+compute/1282411>	Sixty-two nodes each with 1 GPU	62	48 slots per gpu	TeslaT4
+
+Differences between GeForce and Tesla Cards https://www.microway.com/
+knowledge-center-articles/comparison-of-nvidia-geforce-gpus-and-nvidia-
+tesla-gpus/ <https://www.microway.com/knowledge-center-articles/
+comparison-of-nvidia-geforce-gpus-and-nvidia-tesla-gpus/>
+
+
+    GPU Queues
+
+Queue Name	Price per GPU/Hour	Cards available	Average Slots per GPU	
+Slots per Node	Memory Per Slot	Requestable Memory per Node	Notes
+gpu_gh200	$0.80	GH200 Super Chip	72	72	~6.5GB	480GB	There is a single
+H100 GPU + Grace ARM CPU in the node.  Both the CPU and GPU can access
+the 96GB of HBM and the 480GB of System memory directly.  This requires
+frameworks that support CUDA Compute Capability 9.0 and the Grace Hopper
+architecture.  Because this node is ARM64 based, it requires binaries
+that have been compiled for Linux ARM64 rather then x86_64.  Because of
+the different memory architecture and there being a single GPU per node
+memory limits are not enforced and it is expected you will request all
+72 slots to fully leverage the CPU.
+gpu_h200	$0.80	H200	12	96	40GB	3,840GB	Any job that requires more than
+80GB of GPU memory, nvlink, >4 Tesla cards in the same node, or will
+only run on H200 GPUs
+gpu_h100	$0.50	H100	12	96	40GB	3,840GB	Any job that requires more than
+24GB of GPU memory, nvlink, >4 Tesla cards in the same node, or will
+only run on H100 GPUs
+gpu_a100	$0.20	A100	12	48	40GB	1,920GB	Any job that requires more than
+24GB of GPU memory, nvlink, or will only run on A100 GPUs
+gpu_l4	$0.10	Tesla L4	8	64	15GB	960GB	The majority of jobs can run in
+this queue. It was designed to replace the gpu_rtx queue with more
+modern commodity GPUs.  The nodes have 64 cores (Average of 8 cores per
+card) and 1TB of system memory (15GB per slot)
+gpu_l4_large	$0.10	Tesla L4	64	64	15GB	960GB	For applications that are
+primarily CPU or memory bound but do have a portion of the code that can
+be accelerated by a gpu more dense nodes with lots of gpus are not the
+best fit without stranding gpus. All CPU focused nodes include a gpu to
+provide gpu acceleration to applications that otherwise require high CPU
+core counts or large system memory space. While these cards are in the
+same CPU nodes, you need to submit jobs that will use the gpu to this
+queue. The L4 enabled nodes have 64 cores and with a single gpu per node
+you can request up to the entire slot count for your job.
+gpu_t4	$0.10	Tesla T4	48	48	15GB	720GB	For applications that are
+primarily CPU or memory bound but do have a portion of the code that can
+be accelerated by a gpu more dense nodes with lots of gpus are not the
+best fit without stranding gpus. All CPU focused nodes include a gpu to
+provide gpu acceleration to applications that otherwise require high CPU
+core counts or large system memory space. While these cards are in the
+same CPU nodes, you need to submit jobs that will use the gpu to this
+queue. The T4 enabled nodes have 48 cores and with a single gpu per node
+you can request up to the entire slot count for your job.
+gpu_short	
+
+$0.10
+
+	
+
+Tesla T4
+Telsa L4
+Tesla A100
+Tesla H100
+
+	8	
+	15GB	
+	
+
+This short queue is intended to service jobs with a short runtime (under
+1 hour) and provide a resource for prototyping jobs even during a
+backlog of job. This queue as a default wall time of 1 hour that is set
+when you request the queue.
+
+This queue includes all gpu types and doesn't cap the number of gpus you
+can use at one time.
+
+
+    Submitting Jobs
+
+To submit jobs you will need to tell the scheduler how many gpus you
+would like along with requesting the queue for the type of gpus your job
+would use.  You will also need to request slots based on the number of
+cpus and system memory that your job will require.
+
+Here is a simple example job:
+
+bsub -J "GPUJob" -n 2 -gpu "num=1" -q gpu_l4 -o output.log gpu_binary -option 1
+
+This would submit a job called /GPUJob/.  It requests 2 slots and 1
+gpu.  It runs the command /gpu_binary -option 1/ and the output to /
+output.log/. (You must replace the various examples with your actual
+application and options you want to run)
+
+You can request the number of gpus for your job with the -gpu "num=#"
+option.  You need to request a minimum of 1 GPU.  When your job runs it
+will update the variable *CUDA_VISIBLE_DEVICES* to reflect the gpus that
+you are assigned.  If you request more than one gpu then your
+application will need to be able to use multiple gpus so check the
+documentation for the application for details.
+
+You request the family of gpu based on which queue you submit the job to
+with the -q option.  
+
+The remaining options for bsub remain the same as for other jobs.
+
+Here is an example where your job requires an NVIDIA Tesla card:
+
+bsub -J "GPUJob" -n 4 -gpu "num=1" -q gpu_tesla -o output.log gpu_binary -option 1
+
+ 
+
+In this example you need 8 cards but only want to use the L4 cards
+
+bsub -J "GPUJob" -n 8 -gpu "num=8" -q gpu_l4 -o output.log gpu_binary -option 1
+
+ 
+
+In this example your code can use any type of tesla gpu but it requires
+a card with at least 16GB of memory
+
+bsub -J "GPUJob" -n 2 -gpu "num=1:gmem=16G" -q gpu_tesla -o output.log gpu_binary -option 1
+
+ 
+
+In this example you need four tesla gpus that are connected with the
+high speed nvlink fabric
+
+bsub -J "GPUJob" -n 2 -gpu "num=4:nvlink=yes" -q gpu_tesla -o output.log gpu_binary -option 1
+
+ 
+
+In this example you need a machine with 4 A100 cards that are connected
+with nvlink fabric.  (This is an incredibly specific example but shows
+how the options can be combined together using a colon to separate the
+settings) 
+
+bsub -J "GPUJob" -n 2 -gpu "num=4:gmodel=NVIDIAA100_SXM4_80GB:nvlink=yes" -q gpu_tesla -o output.log gpu_binary -option 1
+
+ 
+
+For more information on the new options please take a look below at the
+additional options for -gpu.  But only be as specific as you need as you
+may accidentally block yourself out from using all the resources
+available to you.
+
+
+      Interactive GPU Jobs
+
+Interactive Jobs run in the various gpu_ queues do not have the same
+runtime limits as non-GPU Interactive Jobs that are run in the
+Interactive queue.  Because of this please make sure you monitor your
+Interactive Jobs and end them when you are done working so the resources
+are freed up for other people that need to use the gpus and you don't
+accumulate charges for extended idle time after the processing.
+
+
+        *Example interactive GPU Job submission:*
+
+bsub -n 2 -gpu "num=1" -q gpu_l4 -Is /bin/bash
+
+ 
+
+
+    Additional options for the -gpu option for bsub
+
+By default we set the -gpu option to use the settings "/
+num=1:mode=exclusive_process:mps=no:j_exclusive=yes" /to provide an
+isolated environment where each job has exclusive access to the gpu it
+is assigned.
+
+Setting and options	
+	Janelia Notes
+num=num_gpus	The number of physical GPUs required by the job.	The
+maximum number is the number of gpus in a host.
+mode=shared | exclusive_process	The GPU mode when the job is running,
+either shared or exclusive_process.
+
+The shared mode corresponds to the NVIDIA DEFAULT compute mode.
+The exclusive_process mode corresponds to the
+NVIDIA EXCLUSIVE_PROCESS compute mode.
+
+	
+
+The Janelia default setting is the exclusive process mode.
+
+Unless you will be running multiple individual binaries within the same
+job that all need to access the gpu concurrently, you should leave this
+set to exclusive_process by not including it in your bsub command.
+
+mps=yes | no	Enables or disables the NVIDIA Multi-Process Service (MPS)
+for the GPUs that are allocated to the job. For an exclusive process
+job, yes is the only meaningful option.
+
+MPS is useful for both shared and exclusive process GPUs, and allows
+more efficient sharing of GPU resources and better GPU utilization. See
+the NVIDIA documentation for more information limitations.
+
+	There have been bugs with this service shutting down properly in the
+past so we have defaulted to not enabling it for jobs. If you intend to
+use it you can include it but need to watch very carefully that your
+jobs are not leaving processes behind on the node as the nvidia MPS is
+not a child process of your job.
+j_exclusive=yes | no	Specifies whether the allocated GPUs can be used by
+other jobs.	Do not change this option. GPUs should always be used
+exclusively by a single job at a time.
+gmodel=model_name[-mem_size]	Specifies the name of the requested GPU
+model and, optionally, its total GPU memory.
+
+/gmodel=full_model_name/
+
+Requests GPUs with this full model name and number. For example,
+gmodel=NVIDIAA100_SXM4_80GB requests the Tesla A100 GPU with SXM4 and
+the 80GB version.
+
+/gmodel=brand_name/
+
+Requests GPUs with this brand name. For example, gmodel=Tesla requests
+any Tesla GPU.
+
+/gmodel=model_name-mem_size/
+
+Requests the specified GPU with this amount of total GPU memory. For
+example, gmodel=Tesla-12G requests any Tesla GPU with a total memory
+size of 12GB.
+
+	
+
+The Full Model name has been listed in the table above with the various
+GPUs we have available.
+
+While in the documentation it lists some shorter names for gpus such as
+TeslaA100 or just A100, we have found those to not work with the cards
+we have. Only the full model name or the brand name such as Tesla will work
+
+The -mem_size option is not a greater than or equal to value it is a
+approximately equal to this value. If you request Tesla-16G it will only
+match the cards with 16GB and not ones with 32GB. If you have a minimum
+amount of gpu memory you should use the gmem option noted later.  
+
+gmem=mem_value	Specifies the memory on each GPU that the job requires.	
+This option requests a card with the requested amount of memory or more
+available. You should request it in GB so for example gmem=16G.  This
+option should only really be used with the gpu_short queue as it is the
+only queue with a mix of GPUs where you might want to specify a minimum
+amount of GPU memory.  The gpu_tesla queue should only include jobs that
+can be run on any of the gpus in the queue.
+nvlink=yes	Specifies whether LSF enforces job requirements for NVLink
+connections among GPUs. If set to yes, LSF must allocate GPUs with
+NVLink connections.	
+
+The A100 and H100 nodes are the only nodes that have NVLINK available at
+this time.
+
+If you don't need it specifically, you can ignore this option and not
+include it.
+
+It is only useful when running a multi-gpu capable application
+
+
+A full list of the new options for -gpu can be found at https://
+www.ibm.com/support/knowledgecenter/en/SSWRJV_10.1.0/lsf_gpu/
+lsf_gpu_submit_jobs.html <https://www.ibm.com/support/knowledgecenter/
+en/SSWRJV_10.1.0/lsf_gpu/lsf_gpu_submit_jobs.html>
+
+
+    GPU host statistics
+
+There are a number of statistics that are now collected that can be
+viewed from other nodes in the cluster.  In the past to get information
+on the gpu utilization, memory utilization, temperature, etc you would
+have to be logged into the node your job is running on and loop the
+nvidia-smi command.
+
+The lsload command has a -gpuload option and you can specify a host your
+would like to get details on.  Here is an example of the command for one
+of the nodes with a H100 card. The gpu_ut is the processing utilization. 
+
+lsload -gpuload <hostname>
+
+ 
+
+[login1 - linesr@e05u15]~>lsload -gpuload h12u08
+HOST_NAME    gpuid       gpu_model  gpu_mode gpu_temp  gpu_ecc  gpu_ut  gpu_mut  gpu_power  gpu_mtotal  gpu_mused  gpu_pstate  gpu_status  gpu_error
+h12u08           0 NVIDIAH10080GBH         3      45C        0     15%       4%     196866       79.6G      20.4G           0          ok  -         
+                 1 NVIDIAH10080GBH         3      43C        0     58%      28%     300795       79.6G      25.8G           0          ok  -         
+                 2 NVIDIAH10080GBH         3      47C        0     71%      41%     382172       79.6G      39.6G           0          ok  -         
+                 3 NVIDIAH10080GBH         3      48C        0     29%       8%     193548       79.6G      20.4G           0          ok  -         
+                 4 NVIDIAH10080GBH         3      34C        0      5%       0%     126041       79.6G       1.2G           0          ok  -         
+                 5 NVIDIAH10080GBH         3      25C        0      0%       0%      70140       79.6G       453M           0          ok  -         
+                 6 NVIDIAH10080GBH         3      57C        0     55%      26%     319366       79.6G      17.2G           0          ok  -         
+                 7 NVIDIAH10080GBH         3      46C        0     71%      41%     380141       79.6G        73G           0          ok  - 
+
+If you use the lsload -gpuload command without specifying the name of a
+node it will give you a full list of all gpu nodes in the cluster.  That
+output can be overwhelming and it is more useful to specify a particular
+node you are interested in.
+
+You might want to combine the lsload -gpuload <hostname> command with
+watch to get updated stats on the watch command like this
+
+watch -n 10 lsload -gpuload h12u08
+
+You shouldn't update more frequently than every 10 to 15 seconds as the
+load metrics are only reported from the compute node to the cluster head
+a few times a minute.
+
+The gpuid can be found as a variable inside the jobs environment as the
+variable CUDA_VISIBLE_DEVICES_ORIG
+
+You can also use bjobs -l <jobid> to find which gpu your job was
+assigned to.  You are looking for the External Messages section of the
+output:
+
+ EXTERNAL MESSAGES:
+ MSG_ID FROM       POST_TIME      MESSAGE                             ATTACHMENT 
+ 0      linesr     Dec  1 01:00   h13u08:gpus=0;                          N     
+
+
+    Slots per GPU
+
+Because of the wide variety of underlying systems hosting the GPUs and
+the different number of GPUs per node, the ratio of slots to GPUs
+changes between the card types.  As a result in addition to matching
+your gpu processing the proper card you need to take into account the
+number of slots you need for CPU processing and system RAM usage.  If
+you request more slots for the job than the ratios noted above, it can
+result in GPUs being stranded because there are not enough slots for
+system resources available to drive them. Please refer to the table
+above that includes the slot to GPU ratio when sizing your jobs.
+
+
+    GPU Limits
+
+The GPU queues generally have a limit per user to ~50% of the total GPUs
+in the queue.  This is to reduce the chances a single account can block
+everyone else from using the GPUs.  This limit is not on the gpu_short
+queue because by it's nature the jobs in it will turn over in a short
+time and other people's jobs will have the opportunity to run.
+
+At times we may adjust this limit up or down based on the current
+workload to maximize the use of the GPUs while still providing
+reasonably prompt turnaround for new jobs.
+
+
+    GPU Billing
+
+GPUs are billed for the walltime of the job based on the type of GPU
+requested.  Refer to the GPU Queues <https://wikis.janelia.org/display/
+SCS/Janelia+Compute+Cluster#JaneliaComputeCluster-GPUQueues> table for
+the prices of each GPU.  The CPU slots for the job are billed the same
+as a CPU only job at $0.05 per slot per hour
+
+As an example a job requesting 5 slots and 1 H200 GPU that ran for 10
+hours would be charged 5 (slots) x 10 (hrs) x $0.05 = $2.50 Plus 1 (H200
+GPU) x 10 (hrs) * $0.80 = $8.00 for a total of $10.50 for this job.
+
+
+    Containers
+
+The GPU nodes support running Apptainer (formerly Singularity)
+containers.  The nice thing is that you can have a fully contained
+Ubuntu (or other flavor) environment within a file that can be run as an
+executable and will be portable to any Linux systems that has
+singularity installed whether they run Ubuntu or not. This way we can
+maintain Oracle Linux on the compute cluster and you can run within the
+environment that works best for your development. Another nice thing is
+that you don’t have to worry about the underlying host’s Nvidia driver.
+The container itself contains Cuda and CuDNN but the actual Nvida driver
+is provided by the host system that the container runs on.  Apptainer
+Containers are designed from the ground up to run in an HPC environment
+with a job scheduler and do not require root access to the system like
+Docker.
+
+
+    CUDA
+
+CUDA Toolkits are installed in /usr/local/ on each compute node with all
+versions available from the NVIDIA repository available.  Currently, /
+usr/local/cuda is pointing at 12.9.  There are also /usr/local/cuda-11
+and /usr/local/cuda-12 that are pointing to the latest point release in
+those versions.  We will maintain the versions of the cuda toolkit that
+are available in the nvidia repository.
+
+Many applications that are provided by conda are now being bundled with
+cuda toolkit installs that are included in the virtual environment where
+they are installed.  This means they are not reliant on the system
+installed cuda toolkit and can maintain their own stable version in
+coordination with the application.
+
+
+  *Apptainer (formerly Singularity) Containers*
+
+Compatibility notice
+
+The compute nodes are running Apptainer 1.3.x. It can run container
+images created with older versions but containers created with it can
+not run on older versions of apptainer or singularity.
+
+
+Apptainer will probably be most useful to those who want to use our
+shared GPU resource and/or who develop on Ubuntu but want to run on the
+compute cluster.  However, Apptainer can be used to run any software not
+limited to just software requiring GPUs. With Apptainer we can now
+create portable containers containing whatever Cuda version and other
+software.
+
+It is not possible for us to support Docker but with Apptainer you can
+accomplish the same. It is actually possible to bootstrap and build an
+Apptainer container from an existing Docker container. This gives people
+who have already developed Docker-based workflows a quick migration path
+to Apptainer.
+
+An important consideration for containers leveraging GPUs is the mapping
+of the host nvidia driver libraries into the container namespace at
+runtime.  This removes the requirement to build the driver libraries for
+every version of the nvidia drivers into your container and enable the
+correct one based on the host you are running on.  But the drawback to
+this is GPU enabled containers will eventually have compatibility issues
+as the hosts libraries continue to be built against newer system
+libraries such as glibc.  At some point the driver libraries will
+require a newer version that is available in the container and the
+container will have to be rebuilt.  
+
+For more information see: Apptainer Containers </display/SCS/
+Singularity+Containers>
+
+
+  *More Information on running and completed jobs*
+
+The best resource is RTM. Got to https://lsf-rtm.int.janelia.org/
+<https://lsf-rtm.int.janelia.org/> and log in with your LDAP network
+username and password.  
+
+
+    One time setup to add columns to the Details page:
+
+ 1. Go to https://lsf-rtm.int.janelia.org/ <https://lsf-
+    rtm.int.janelia.org/> and log in
+ 2. Click the Cluster Tab at the top of the page
+ 3. Choose the Job Info and then sub item Details on the left side of
+    the page
+ 4. Click the Person button in the upper right corner and choose Edit
+    Profile
+ 5. Click the Jobs tab in the second row of tabs
+ 6. Check the  Nodes/CPUs, Reserved Memory, Max Memory, Current Memory
+    and Exit Code items 
+     1. You can add other fields but these are useful for ensuring your
+        jobs request appropriate resources
+ 7. Scroll to the bottom of the page and click Save
+
+
+    To see your jobs:
+
+ 1. Click the Cluster tab at the top of the page
+ 2. Choose Job Info and the sub item Details on the left side of the page.
+ 3. You can then filter the jobs.  There are two Status options that you
+    are likely to want to look at; Active and Finished.
+     1. /Active/ shows jobs that are Running, Pending or Waiting, so
+        effectively anything that hasn't ended yet.
+     2. /Finished/ shows jobs that are Done (ended cleanly without an
+        error) and Exit (anything that didn't end cleanly, killed,
+        returned error, etc).
+ 4. You can filter based on the User and for the Finished jobs you can
+    select a timeframe.
+ 5. By default it will show 500 Records at a time, avoid showing more
+    per page or it may timeout while trying to load them all.
+ 6. The JobID is a clickable link that will take you to detailed
+    information about the job.
+
+
+    To see the details on a Job:
+
+ 1. Use the instructions above to see a list of your jobs.
+ 2. Click on the JobID for the job you are interested in.
+ 3. There are three tabs for the job; Job Details, Job Graphs, and Host
+    Graphs
+     1. Job details will give a text summary of the job.  Two very
+        useful metrics are Max Memory Used, Reserved Memory and Job
+        Efficiency.
+         1. Max Memory used is the peak memory usage and can be useful
+            for identifying how many slots are required to cover memory
+            usage.
+         2. Reserved Memory is the amount of memory your job has
+            requested based on the number of slots you requested. If Max
+            Memory exceeds this amount the job will be terminated. 
+            Because the jobs are terminated in a nice manner the
+            application may continue to use more memory than the limit
+            for a short time.
+         3. Job Efficiency is really the CPU efficiency based on the
+            number of slots.  
+             1. 100% would mean that your job is using cores equal to
+                the number of slots requested for the entire job.  
+             2. This may be lower if you have to request more slots to
+                cover memory but your application does not multithread
+                for the entire time
+             3. If this is above 100% and your job runs less than a
+                minute then it is just a quirk of the metrics being
+                collected each minute.
+             4. If it is above 100% and your job runs longer than a
+                minute you likely have code that takes advantage of
+                HyperThreading. 
+             5. If it is above 200% and your job runs longer than a
+                minute this job's cgroup fencing has encountered an
+                issue and is not confining the job.  It also indicates
+                that the job probably should request more slots because
+                it could leverage more cpus than you have given it.
+     2. Job Graphs will display a number of metrics for the job while it
+        ran based on 1 minute increments
+     3. Host Graphs will display metrics for the host the job was
+        running on during the timeframe of the job.  Because these are
+        host based, it all jobs running on the node contribute to these
+        metrics.
+
+
+  Monthly Billing
+
+Billing information is attached to every job run allowing for realtime
+reporting of cluster usage.  This is achieved through the RTM application.  
+
+ 1. Got to https://lsf-rtm.int.janelia.org/ <https://lsf-
+    rtm.int.janelia.org/> and log in with your LDAP network username and
+    password.
+ 2. Click on the Cluster tab
+ 3. Select the Reports item on the left and click the Daily Statistics
+    report
+
+The default view shows a rollup report.  You can see the usage for today
+which is a realtime view or you can see a report for the past that is
+generated each night.
+
+
+    Usage today
+
+If you just want to see your usage you can change the user from N/A to a
+specific UserName then select Today from the Presets dropdown. You will
+also want to change the Units from Auto to Hours.  This will show a
+single row for that account.  The Wall Time column is the total number
+of Slot Hours (if you have change the units to hours)
+
+If you want to see everyone in your lab you could select the User All,
+then select the project that matches your group or project.
+
+
+    Billing Report View
+
+The Compute cluster is bill on a monthly basis running from the 15th of
+the previous month to the 14th of the current billing month.  For
+example February 2017 billing is the jobs that completed between January
+15th 2017 and February 14th 2017.  This allows for each month to be
+consistent and usage to be entered into finance before their monthly
+close even during holiday months.
+
+To show the same view that we will use for billing:
+
+ 1. Got to https://lsf-rtm.int.janelia.org/ <https://lsf-
+    rtm.int.janelia.org/> and log in with your LDAP network username and
+    password.
+ 2. Click on the Cluster tab
+ 3. Select the Reports item on the left and click the Daily Statistics
+    report
+ 4. Change User to:
+     1. All if you would like a breakdown by username
+     2. N/A if you would like a total by lab/project
+ 5. Change Project to All
+ 6. Change Units to Hours
+ 7. Select From <year>-<Month before billing month>-15
+ 8. Select To <year>-<Billing month>-15
+ 9. Click Go
+
+The Wall Time is the number of Slot Hours per user in each Lab/Project.
+ Totals for each Lab/Project will be multiplied by $0.05 to generate the
+CPU billing.  The GPU Wall Time for each queue is the total number of
+GPU Hours and is multiplied by the price for the particular GPU to
+generate the GPU billing.  A list of the prices for each GPU can be
+found on the GPU Queues <https://wikis.janelia.org/display/SCS/
+Janelia+Compute+Cluster#JaneliaComputeCluster-GPUQueues> table.  The
+totals are combined and provided to Finance for chargebacks.
+
+Example of a readonly view for the September 2017 billing cycle
+<https://lsf-rtm.int.janelia.org/cacti/plugins/grid/grid_dailystats.php?
+ajaxstats=1&clusterid=0&stat=-1&rows_selector=-1&user=0&queue=-1&efficiency=-1&project=-2&exec_host=-1&units=hours&filter=&date1=2017-08-15&date2=2017-09-15&summarize=true&predefined_timeshift=7>
+
+
