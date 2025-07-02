@@ -130,7 +130,7 @@ Configure the computational resources for your job. Resource allocation affects 
                     with Grid(classes="gpu-grid"):
                         with Container(classes="resource-item"):
                             yield Static("GPU Type:")
-                            yield Select(id="gpu-type-select")
+                            yield Select([("Loading...", "")], id="gpu-type-select")
                             yield Static("💡 A100 recommended for most ML tasks", classes="help-text")
                         
                         with Container(classes="resource-item"):
@@ -194,7 +194,10 @@ Configure the computational resources for your job. Resource allocation affects 
             display_name = f"{gpu_info.model} ({gpu_info.vram_gb}GB) - ${gpu_info.cost_per_hour:.2f}/hour"
             gpu_options.append((display_name, gpu_name))
         
-        gpu_type_select.set_options(gpu_options)
+        if gpu_options:
+            gpu_type_select.set_options(gpu_options)
+        else:
+            gpu_type_select.set_options([("No GPUs available", "")])
         
         # Set current GPU configuration
         if self.job_config.gpu_config:

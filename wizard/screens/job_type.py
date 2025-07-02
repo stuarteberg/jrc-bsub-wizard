@@ -116,6 +116,9 @@ Choose the type of job you want to submit. This will determine available options
         else:
             radio_set.pressed = "cpu"  # Default selection
         
+        # Set focus to enable keyboard navigation
+        radio_set.focus()
+        
         # Update description
         self._update_description(radio_set.pressed)
     

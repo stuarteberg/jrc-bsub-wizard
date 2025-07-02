@@ -1,9 +1,12 @@
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
-from textual.widgets import Header, Footer, Static, Button
+from textual.widgets import Header, Footer, Static, Button, Input, Select
 from textual.binding import Binding
 from textual.screen import ModalScreen
 from textual.reactive import reactive
+import json
+import os
+from pathlib import Path
 
 from .models.job_config import JobConfiguration, JobType
 from .models.cluster_info import ClusterConfiguration
@@ -99,6 +102,34 @@ class BsubWizardApp(App):
         color: $text;
         padding: 1;
         margin: 1;
+    }
+    
+    .dialog-container {
+        background: $surface;
+        border: solid $primary;
+        padding: 2;
+        margin: 2;
+        width: 60%;
+        height: auto;
+        max-width: 80;
+    }
+    
+    .dialog-title {
+        text-align: center;
+        background: $primary;
+        color: $text;
+        padding: 1;
+        margin: 0 0 2 0;
+    }
+    
+    .help-container {
+        background: $surface;
+        border: solid $primary;
+        padding: 2;
+        margin: 2;
+        width: 80%;
+        height: 80%;
+        max-width: 120;
     }
     """
     
@@ -231,7 +262,7 @@ class BsubWizardApp(App):
     def action_next(self) -> None:
         """Move to the next step"""
         # Validate current step
-        if not self.validate_current_step():
+        if not self.validate_current_wizard_step():
             return
         
         if self.current_step < self.total_steps - 1:
@@ -249,17 +280,17 @@ class BsubWizardApp(App):
     
     def action_save_config(self) -> None:
         """Save current configuration"""
-        self.push_screen("save_config")
+        self.push_screen(SaveConfigScreen(self.job_config))
     
     def action_load_config(self) -> None:
         """Load a saved configuration"""
-        self.push_screen("load_config")
+        self.push_screen(LoadConfigScreen(self))
     
     def action_help(self) -> None:
         """Show help information"""
-        self.push_screen("help")
+        self.push_screen(HelpScreen())
     
-    def validate_current_step(self) -> bool:
+    def validate_current_wizard_step(self) -> bool:
         """Validate the current step before proceeding"""
         try:
             # Get the current screen and validate it
@@ -378,6 +409,191 @@ class SuccessScreen(ModalScreen):
     
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "ok-button":
+            self.dismiss()
+
+
+class SaveConfigScreen(ModalScreen):
+    """Modal screen for saving configuration"""
+    
+    BINDINGS = [
+        Binding("escape", "dismiss", "Cancel", priority=True),
+    ]
+    
+    def __init__(self, job_config):
+        super().__init__()
+        self.job_config = job_config
+    
+    def compose(self) -> ComposeResult:
+        with Container(classes="dialog-container"):
+            yield Static("💾 Save Configuration", classes="dialog-title")
+            yield Static("Enter a name for this configuration:")
+            yield Input(placeholder="e.g., ml_training_config", id="config-name-input")
+            with Horizontal():
+                yield Button("Cancel", id="modal-cancel-button", classes="secondary")
+                yield Button("Save", id="modal-save-button", classes="primary")
+    
+    def on_mount(self) -> None:
+        """Focus the input field when the screen loads"""
+        try:
+            input_field = self.query_one("#config-name-input", Input)
+            input_field.focus()
+        except:
+            pass
+    
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "modal-cancel-button":
+            self.dismiss()
+        elif event.button.id == "modal-save-button":
+            self._save_config()
+    
+    def _save_config(self) -> None:
+        """Save the configuration to file"""
+        try:
+            name_input = self.query_one("#config-name-input", Input)
+            config_name = name_input.value.strip()
+            
+            if not config_name:
+                self.app.push_screen(ErrorScreen("Invalid Name", "Please enter a configuration name"))
+                return
+            
+            # Create configs directory if it doesn't exist
+            configs_dir = Path("configs")
+            configs_dir.mkdir(exist_ok=True)
+            
+            # Save configuration
+            config_file = configs_dir / f"{config_name}.json"
+            config_data = self.job_config.to_dict()
+            
+            with open(config_file, 'w') as f:
+                json.dump(config_data, f, indent=2)
+            
+            # First dismiss this modal, then show success
+            self.dismiss()
+            self.app.push_screen(SuccessScreen(
+                "Configuration Saved", 
+                f"Configuration saved as '{config_name}'"
+            ))
+            
+        except Exception as e:
+            self.app.push_screen(ErrorScreen("Save Error", f"Failed to save configuration: {str(e)}"))
+
+
+class LoadConfigScreen(ModalScreen):
+    """Modal screen for loading configuration"""
+    
+    BINDINGS = [
+        Binding("escape", "dismiss", "Cancel", priority=True),
+    ]
+    
+    def __init__(self, wizard_app):
+        super().__init__()
+        self.wizard_app = wizard_app
+    
+    def compose(self) -> ComposeResult:
+        with Container(classes="dialog-container"):
+            yield Static("📂 Load Configuration", classes="dialog-title")
+            yield Static("Select a saved configuration:")
+            yield Select(self._get_config_options(), id="config-select")
+            with Horizontal():
+                yield Button("Cancel", id="modal-cancel-button", classes="secondary")
+                yield Button("Load", id="modal-load-button", classes="primary")
+    
+    def _get_config_options(self):
+        """Get list of available configuration files"""
+        configs_dir = Path("configs")
+        if not configs_dir.exists():
+            return [("No saved configurations", "")]
+        
+        config_files = list(configs_dir.glob("*.json"))
+        if not config_files:
+            return [("No saved configurations", "")]
+        
+        options = []
+        for config_file in config_files:
+            name = config_file.stem
+            options.append((name, str(config_file)))
+        
+        return options
+    
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "modal-cancel-button":
+            self.dismiss()
+        elif event.button.id == "modal-load-button":
+            self._load_config()
+    
+    def _load_config(self) -> None:
+        """Load the selected configuration"""
+        config_select = self.query_one("#config-select", Select)
+        config_file_path = config_select.value
+        
+        if not config_file_path:
+            self.app.push_screen(ErrorScreen("No Selection", "Please select a configuration to load"))
+            return
+        
+        try:
+            with open(config_file_path, 'r') as f:
+                config_data = json.load(f)
+            
+            # Load configuration into job_config
+            self.wizard_app.job_config.from_dict(config_data)
+            
+            # Refresh current step to show loaded values
+            self.wizard_app.show_current_step()
+            
+            config_name = Path(config_file_path).stem
+            
+            # First dismiss this modal, then show success
+            self.dismiss()
+            self.app.push_screen(SuccessScreen(
+                "Configuration Loaded", 
+                f"Configuration '{config_name}' loaded successfully"
+            ))
+            
+        except Exception as e:
+            self.app.push_screen(ErrorScreen("Load Error", f"Failed to load configuration: {str(e)}"))
+
+
+class HelpScreen(ModalScreen):
+    """Modal screen for displaying help information"""
+    
+    BINDINGS = [
+        Binding("escape", "dismiss", "Close", priority=True),
+    ]
+    
+    def compose(self) -> ComposeResult:
+        with Container(classes="help-container"):
+            yield Static("❓ BSub Wizard Help", classes="dialog-title")
+            yield Static("""
+**Navigation:**
+• Use Next/Back buttons or Enter/Escape keys
+• Arrow keys navigate within selections
+• Tab to move between form fields
+
+**Steps:**
+1. **Welcome** - Overview and getting started
+2. **Job Type** - Choose CPU, GPU, Interactive, or MPI
+3. **Resources** - Configure CPU/GPU allocation
+4. **Queue** - Select appropriate cluster queue
+5. **Runtime** - Set time limits and scheduling
+6. **Files** - Specify input/output files and paths
+7. **Advanced** - Environment variables and special options
+8. **Review** - Final command review and submission
+
+**Configuration:**
+• Save/Load buttons store your settings
+• Configurations saved to 'configs/' directory
+
+**Tips:**
+• Start with recommended defaults
+• Check resource estimates before proceeding
+• Use 'short' queue for testing (1 hour limit)
+
+For more help, see: https://wiki.int.janelia.org/
+            """)
+            yield Button("Close", id="close-button", classes="primary")
+    
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "close-button":
             self.dismiss()
 
 

@@ -1,0 +1,19 @@
+[workspace]
+authors = ["Stuart Berg <bergs@janelia.hhmi.org>"]
+channels = ["conda-forge"]
+name = "jrc-bsub"
+platforms = ["osx-arm64"]
+version = "0.1.0"
+
+[tasks]
+start = "python main.py"
+test = "python test_basic.py"
+test-app = "python test_app_structure.py"
+test-quick = "python test_quick_run.py"
+help = "python main.py --help"
+
+[dependencies]
+textual = ">=3.4.0,<4"
+rich = ">=14.0.0,<15"
+click = ">=8.2.1,<9"
+pyperclip = ">=1.9.0,<2"
